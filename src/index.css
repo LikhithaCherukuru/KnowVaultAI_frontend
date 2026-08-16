@@ -1,0 +1,85 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  html, body, #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-gray-50 text-gray-900 antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+
+  html.dark body {
+    @apply bg-[#0b0e14] text-gray-100;
+  }
+
+  *:focus-visible {
+    @apply outline-none ring-2 ring-brand-500 ring-offset-2 ring-offset-white;
+  }
+
+  html.dark *:focus-visible {
+    @apply ring-offset-[#0b0e14];
+  }
+
+  ::selection {
+    @apply bg-brand-500/20;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 rounded-full border-2 border-solid border-transparent bg-clip-padding;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-400;
+  }
+  html.dark ::-webkit-scrollbar-thumb {
+    @apply bg-gray-700;
+  }
+  html.dark ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-600;
+  }
+}
+
+@layer components {
+  .surface {
+    @apply bg-white border border-gray-200 rounded-xl;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.04), 0 1px 3px 0 rgba(0, 0, 0, 0.06);
+  }
+  html.dark .surface {
+    @apply bg-[#11151f] border-gray-800;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.2), 0 1px 3px 0 rgba(0, 0, 0, 0.3);
+  }
+
+  .surface-subtle {
+    @apply bg-gray-50 border border-gray-200 rounded-lg;
+  }
+  html.dark .surface-subtle {
+    @apply bg-[#0f131c] border-gray-800;
+  }
+
+  .input-base {
+    @apply w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 transition-colors focus:border-brand-500 focus:ring-1 focus:ring-brand-500;
+  }
+  html.dark .input-base {
+    @apply border-gray-700 bg-[#0f131c] text-gray-100 placeholder-gray-500;
+  }
+}
