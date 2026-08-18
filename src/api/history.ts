@@ -1,8 +1,10 @@
-// The current backend does not expose /dashboard/stats, /dashboard/recent-files,
-// /dashboard/activity, /search/history, or /chat/conversations endpoints.
-// This module is a placeholder for easy future integration.
-// No fake data is returned.
+import { getConversations, deleteConversation } from './chat';
+import type { ConversationItem } from '@/types';
 
-export const historyApi = {
-  notAvailable: 'The backend does not currently expose history endpoints.',
-};
+export async function getUserConversations(): Promise<ConversationItem[]> {
+  return getConversations();
+}
+
+export async function deleteUserConversation(id: string): Promise<void> {
+  return deleteConversation(id);
+}

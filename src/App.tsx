@@ -10,7 +10,6 @@ import FileDetails from '@/pages/FileDetails';
 import Folders from '@/pages/Folders';
 import Search from '@/pages/Search';
 import Chat from '@/pages/Chat';
-import Jobs from '@/pages/Jobs';
 import History from '@/pages/History';
 import Settings from '@/pages/Settings';
 import Profile from '@/pages/Profile';
@@ -68,7 +67,6 @@ export default function App() {
         <Route path="/search" element={<ProtectedRoute><Search /></ProtectedRoute>} />
         <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
         <Route path="/chat/:id" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
-        <Route path="/jobs" element={<ProtectedRoute><Jobs /></ProtectedRoute>} />
         <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />

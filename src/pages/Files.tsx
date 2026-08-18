@@ -1,59 +1,38 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, MoreVertical, Trash2, FileText, X, AlertCircle, CheckCircle2, Loader2, FolderPlus } from 'lucide-react';
-import { getFiles, deleteFile, scanFile, startIndexing } from '@/api/files';
-import { getFolders } from '@/api/folders';
-import type { FileItem, Folder, ScanResult } from '@/types';
+import { Search, MoreVertical, Trash2, FileText, FolderPlus, RefreshCw, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { getFiles, deleteFile, startIndexing } from '@/api/files';
+import type { FileItem, ScanResult } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { StatusBadge } from '@/components/ui/StatusBadge';
 import { FileIconComponent } from '@/components/files/FileIcon';
 import { Dropdown, DropdownItem, DropdownSeparator } from '@/components/ui/Dropdown';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { TableSkeleton } from '@/components/ui/LoadingSkeleton';
-import { Modal } from '@/components/ui/Modal';
-import { formatBytes, formatRelativeTime, getFileCategory, cn } from '@/utils';
-
-interface ScanTask {
-  id: string;
-  label: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
-  result?: ScanResult;
-  error?: string;
-}
+import { formatBytes, formatRelativeTime, getFileCategory } from '@/utils';
 
 export default function Files() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [files, setFiles] = useState<FileItem[]>([]);
-  const [folders, setFolders] = useState<Folder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [search, setSearch] = useState('');
-  const [scanOpen, setScanOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<FileItem | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [scanPath, setScanPath] = useState('');
-  const [scanFolder, setScanFolder] = useState('');
-  const [scanTasks, setScanTasks] = useState<ScanTask[]>([]);
   const [scanning, setScanning] = useState(false);
+  const [scanMessage, setScanMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [typeFilter, setTypeFilter] = useState('all');
 
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(false);
     try {
-      const [filesRes, foldersRes] = await Promise.allSettled([getFiles(), getFolders()]);
-      if (filesRes.status === 'fulfilled') {
-        const val = filesRes.value;
-        setFiles(Array.isArray(val) ? val : (val.items ?? []));
-      }
-      if (foldersRes.status === 'fulfilled') {
-        const val = foldersRes.value;
-        setFolders(Array.isArray(val) ? val : (val.items ?? []));
-      }
+      const filesRes = await getFiles();
+      const val = Array.isArray(filesRes) ? filesRes : (filesRes.items ?? []);
+      setFiles(val);
     } catch {
       setError(true);
     } finally {
@@ -65,9 +44,15 @@ export default function Files() {
     loadData();
   }, [loadData]);
 
-  const filteredFiles = search
-    ? files.filter((f) => f.name.toLowerCase().includes(search.toLowerCase()))
-    : files;
+  const fileTypes = Array.from(new Set(files.map((f) => f.file_type || '').filter(Boolean))).sort();
+  const filteredFiles = files
+    .filter((f) => {
+      const q = search.toLowerCase();
+      const path = f.file_path || '';
+      return !q || f.name.toLowerCase().includes(q) || path.toLowerCase().includes(q);
+    })
+    .filter((f) => typeFilter === 'all' || f.file_type === typeFilter)
+    .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -83,58 +68,32 @@ export default function Files() {
     }
   };
 
-  const handleScanFile = async () => {
-    if (!scanPath.trim() || !user) return;
+  const handleScanComputer = async () => {
+    if (!user || scanning) return;
     setScanning(true);
-    const taskId = `task-${Date.now()}`;
-    setScanTasks((prev) => [...prev, { id: taskId, label: scanPath.trim(), status: 'processing' }]);
+    setScanMessage(null);
     try {
-      const result = await scanFile({ user_id: user.id, file_path: scanPath.trim() });
-      setScanTasks((prev) =>
-        prev.map((t) => (t.id === taskId ? { ...t, status: 'completed', result } : t))
-      );
-      setTimeout(() => loadData(), 500);
+      const result: ScanResult = await startIndexing({ user_id: user.id });
+      const added = result.files_registered ?? 0;
+      setScanMessage({
+        text: `Scan completed successfully. Discovered and registered ${added} new files.`,
+        type: 'success',
+      });
+      await loadData();
     } catch (err) {
-      setScanTasks((prev) =>
-        prev.map((t) =>
-          t.id === taskId
-            ? { ...t, status: 'failed', error: err instanceof Error ? err.message : 'Scan failed' }
-            : t
-        )
-      );
+      setScanMessage({
+        text: err instanceof Error ? err.message : 'Filesystem scan failed.',
+        type: 'error',
+      });
     } finally {
       setScanning(false);
-      setScanPath('');
-    }
-  };
-
-  const handleStartIndexing = async () => {
-    if (!scanFolder.trim() || !user) return;
-    setScanning(true);
-    const taskId = `task-${Date.now()}`;
-    setScanTasks((prev) => [...prev, { id: taskId, label: scanFolder.trim(), status: 'processing' }]);
-    try {
-      const result = await startIndexing({ user_id: user.id, folder_path: scanFolder.trim() });
-      setScanTasks((prev) =>
-        prev.map((t) => (t.id === taskId ? { ...t, status: 'completed', result } : t))
-      );
-      setTimeout(() => loadData(), 500);
-    } catch (err) {
-      setScanTasks((prev) =>
-        prev.map((t) =>
-          t.id === taskId
-            ? { ...t, status: 'failed', error: err instanceof Error ? err.message : 'Indexing failed' }
-            : t
-        )
-      );
-    } finally {
-      setScanning(false);
-      setScanFolder('');
+      setTimeout(() => setScanMessage(null), 6000);
     }
   };
 
   return (
     <div className="space-y-4">
+      {/* Header actions */}
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -146,9 +105,53 @@ export default function Files() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <Button icon={<FolderPlus className="w-4 h-4" />} onClick={() => setScanOpen(true)}>
-          Scan / Index
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            icon={scanning ? <Loader2 className="w-4 h-4 animate-spin" /> : <FolderPlus className="w-4 h-4" />}
+            onClick={handleScanComputer}
+            disabled={scanning || !user}
+          >
+            {scanning ? 'Scanning...' : 'Scan Computer'}
+          </Button>
+          <Button variant="secondary" icon={<RefreshCw className="w-4 h-4" />} onClick={loadData} disabled={loading}>
+            Refresh
+          </Button>
+        </div>
+      </div>
+
+      {scanMessage && (
+        <div
+          className={`p-3 rounded-lg flex items-center gap-2.5 text-sm ${
+            scanMessage.type === 'success'
+              ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+              : 'bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800'
+          }`}
+        >
+          {scanMessage.type === 'success' ? (
+            <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+          ) : (
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          )}
+          <span>{scanMessage.text}</span>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between">
+        <select
+          className="input-base max-w-xs"
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value)}
+        >
+          <option value="all">All file types ({files.length})</option>
+          {fileTypes.map((type) => (
+            <option key={type} value={type}>
+              {type} ({files.filter((f) => f.file_type === type).length})
+            </option>
+          ))}
+        </select>
+        <span className="text-xs text-gray-500 dark:text-gray-400">
+          Showing {filteredFiles.length} {filteredFiles.length === 1 ? 'file' : 'files'}
+        </span>
       </div>
 
       {loading ? (
@@ -163,12 +166,20 @@ export default function Files() {
         <div className="surface">
           <EmptyState
             icon={<FileText className="w-10 h-10" />}
-            title={search ? "No files match your search" : "No files found"}
-            description={search ? "Try different keywords." : "Scan a file or folder from your system to add documents to your knowledge base."}
+            title={search ? 'No files match your search' : 'No files found'}
+            description={
+              search
+                ? 'Try different search keywords.'
+                : 'Click "Scan Computer" to discover files from your system and add them to Findora.'
+            }
             action={
               !search ? (
-                <Button icon={<FolderPlus className="w-4 h-4" />} onClick={() => setScanOpen(true)}>
-                  Scan / Index
+                <Button
+                  icon={<FolderPlus className="w-4 h-4" />}
+                  onClick={handleScanComputer}
+                  loading={scanning}
+                >
+                  Scan Computer
                 </Button>
               ) : undefined
             }
@@ -182,9 +193,10 @@ export default function Files() {
               <thead>
                 <tr className="border-b border-gray-200 dark:border-gray-800 text-xs text-gray-500 dark:text-gray-400">
                   <th className="text-left font-medium px-4 py-2.5">Name</th>
+                  <th className="text-left font-medium px-4 py-2.5">Path</th>
+                  <th className="text-left font-medium px-4 py-2.5">Type</th>
                   <th className="text-left font-medium px-4 py-2.5">Size</th>
                   <th className="text-left font-medium px-4 py-2.5">Modified</th>
-                  <th className="text-left font-medium px-4 py-2.5">Status</th>
                   <th className="w-10 px-4 py-2.5"></th>
                 </tr>
               </thead>
@@ -201,9 +213,10 @@ export default function Files() {
                         <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate max-w-xs">{file.name}</span>
                       </div>
                     </td>
+                    <td className="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400 max-w-sm truncate" title={file.file_path}>{file.file_path}</td>
+                    <td className="px-4 py-2.5 text-sm text-gray-500 dark:text-gray-400">{file.file_type || '-'}</td>
                     <td className="px-4 py-2.5 text-sm text-gray-500 dark:text-gray-400 tabular-nums">{formatBytes(file.size)}</td>
                     <td className="px-4 py-2.5 text-sm text-gray-500 dark:text-gray-400">{formatRelativeTime(file.updated_at)}</td>
-                    <td className="px-4 py-2.5"><StatusBadge status={file.status} /></td>
                     <td className="px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
                       <Dropdown
                         trigger={
@@ -235,7 +248,7 @@ export default function Files() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{file.name}</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">{formatBytes(file.size)} · {formatRelativeTime(file.updated_at)}</p>
-                  <div className="mt-1.5"><StatusBadge status={file.status} /></div>
+                  {file.file_path && <p className="text-xs text-gray-400 dark:text-gray-500 truncate">{file.file_path}</p>}
                 </div>
                 <button
                   className="p-1 rounded-md text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
@@ -249,85 +262,6 @@ export default function Files() {
           </div>
         </>
       )}
-
-      {/* Scan / Index Modal */}
-      <Modal open={scanOpen} onClose={() => setScanOpen(false)} title="Scan & Index Files" size="lg">
-        <div className="space-y-4">
-          <div>
-            <Input
-              label="Scan a single file"
-              placeholder="/path/to/your/document.pdf"
-              value={scanPath}
-              onChange={(e) => setScanPath(e.target.value)}
-              hint="Enter the full file path on your system"
-            />
-            <Button
-              size="sm"
-              className="mt-2"
-              onClick={handleScanFile}
-              loading={scanning}
-              disabled={!scanPath.trim() || !user}
-              icon={<FileText className="w-3.5 h-3.5" />}
-            >
-              Scan File
-            </Button>
-          </div>
-
-          <div className="border-t border-gray-200 dark:border-gray-800 pt-4">
-            <Input
-              label="Index a folder"
-              placeholder="/path/to/your/folder"
-              value={scanFolder}
-              onChange={(e) => setScanFolder(e.target.value)}
-              hint="Enter the full folder path to index all files"
-            />
-            <Button
-              size="sm"
-              className="mt-2"
-              onClick={handleStartIndexing}
-              loading={scanning}
-              disabled={!scanFolder.trim() || !user}
-              icon={<FolderPlus className="w-3.5 h-3.5" />}
-            >
-              Start Indexing
-            </Button>
-          </div>
-
-          {scanTasks.length > 0 && (
-            <div className="space-y-2 max-h-48 overflow-y-auto">
-              {scanTasks.map((task) => (
-                <div key={task.id} className="flex items-center gap-3 p-2.5 rounded-lg border border-gray-200 dark:border-gray-800">
-                  <div className="flex-shrink-0">
-                    {task.status === 'processing' && <Loader2 className="w-4 h-4 text-brand-500 animate-spin" />}
-                    {task.status === 'completed' && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
-                    {task.status === 'failed' && <AlertCircle className="w-4 h-4 text-red-500" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{task.label}</p>
-                    {task.status === 'failed' && task.error && (
-                      <p className="text-xs text-red-600 dark:text-red-400">{task.error}</p>
-                    )}
-                    {task.status === 'completed' && task.result?.is_duplicate && (
-                      <p className="text-xs text-amber-600 dark:text-amber-400">
-                        Duplicate of: {task.result.duplicate_file_name || 'existing file'}
-                      </p>
-                    )}
-                    {task.status === 'completed' && !task.result?.is_duplicate && (
-                      <p className="text-xs text-emerald-600 dark:text-emerald-400">Scanned and processing</p>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => setScanTasks((prev) => prev.filter((t) => t.id !== task.id))}
-                    className="p-1 rounded-md text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </Modal>
 
       <ConfirmDialog
         open={!!deleteTarget}

@@ -5,7 +5,6 @@ import {
   Folder as FolderIcon,
   Search,
   MessageSquare,
-  Clock,
   Settings,
   User,
   FolderOpen,
@@ -24,7 +23,6 @@ const navItems = [
   { to: '/folders', label: 'Folders', icon: FolderIcon },
   { to: '/search', label: 'AI Search', icon: Search },
   { to: '/chat', label: 'AI Chat', icon: MessageSquare },
-  { to: '/jobs', label: 'Jobs', icon: Clock },
   { to: '/history', label: 'History', icon: FolderOpen },
 ];
 

@@ -14,7 +14,7 @@ function getFileName(result: SearchResult): string {
 }
 
 function getSnippet(result: SearchResult): string {
-  return result.snippet || result.text || '';
+  return result.local_path as string || result.snippet || result.text || '';
 }
 
 function getCitationName(c: Citation): string {
@@ -47,9 +47,9 @@ export default function Search() {
   }, [query]);
 
   const suggestions = [
-    'What did I write about database normalization?',
-    'Summarize my operating systems notes',
-    'Find documents about project planning',
+            'What did I write about database normalization?',
+    'where is my Python file',
+    'find requirements.txt',
   ];
 
   const searchResults = results?.results || [];
@@ -192,6 +192,8 @@ function SearchResultCard({ result, onClick }: { result: SearchResult; onClick: 
           </div>
           <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 line-clamp-2">{snippet}</p>
           <div className="mt-2 flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
+            {result.extension && <span>{result.extension as string}</span>}
+            {result.size !== undefined && <span>{Number(result.size).toLocaleString()} bytes</span>}
             {result.page && <span>Page {result.page}</span>}
             {result.chunk_index !== undefined && <span>Chunk {result.chunk_index}</span>}
             {result.source && <span>{result.source}</span>}

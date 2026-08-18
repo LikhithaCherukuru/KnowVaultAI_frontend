@@ -41,7 +41,7 @@ export interface FileItem {
   size: number;
   category?: FileCategory;
   folder_id?: string | null;
-  status: ProcessingStatus;
+  status?: ProcessingStatus;
   sha256?: string;
   is_duplicate?: boolean;
   duplicate_of?: string | null;
@@ -58,12 +58,14 @@ export interface FileItem {
 export interface Folder {
   id: string;
   name: string;
+  folder_name?: string;
   parent_id?: string | null;
   folder_path?: string;
+  local_path?: string;
   file_count?: number;
   folder_count?: number;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
 }
 
 export interface ScanFileRequest {
@@ -78,12 +80,14 @@ export interface ScanFolderRequest {
 
 export interface StartIndexingRequest {
   user_id: string;
-  folder_path: string;
+  folder_path?: string;
 }
 
 export interface ScanResult {
   message?: string;
   file?: FileItem;
+  files_registered?: number;
+  folders_registered?: number;
   is_duplicate?: boolean;
   duplicate_of?: string | null;
   duplicate_file_name?: string | null;
@@ -95,6 +99,7 @@ export interface SearchResult {
   file_id?: string;
   file_name?: string;
   filename?: string;
+  local_path?: string;
   file_type?: string;
   snippet: string;
   text?: string;
@@ -121,6 +126,7 @@ export interface Citation {
   file_id?: string;
   file_name?: string;
   filename?: string;
+  local_path?: string;
   page?: number;
   chunk_index?: number;
   snippet?: string;
@@ -128,13 +134,36 @@ export interface Citation {
   [key: string]: unknown;
 }
 
+export interface ConversationItem {
+  id: string;
+  user_id: string;
+  title: string;
+  created_at: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  conversation_id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  message?: string;
+  sources?: Citation[];
+  created_at?: string;
+  error?: boolean;
+}
+
 export interface ChatRequest {
   question: string;
+  conversation_id?: string;
 }
 
 export interface ChatResponse {
   answer: string;
   sources?: Citation[];
+  conversation_id?: string;
+  user_message_id?: string;
+  assistant_message_id?: string;
+  messages?: ChatMessage[];
   [key: string]: unknown;
 }
 

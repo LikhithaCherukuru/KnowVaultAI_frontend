@@ -1,8 +1,15 @@
-// The current backend does not expose /jobs, /search/history, /dashboard/stats,
-// /chat/conversations, or /history endpoints. These modules are placeholders
-// that make it easy to connect later when those endpoints become available.
-// No fake data is returned — calling these functions will produce a clear error.
+import { apiRequest } from './client';
 
-export const jobsApi = {
-  notAvailable: 'The backend does not currently expose a /jobs endpoint.',
-};
+export interface ProcessingJob {
+  id: string;
+  file_id?: string;
+  status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+  progress?: number;
+  message?: string;
+  error?: string;
+  created_at?: string;
+}
+
+export async function getJobs(): Promise<ProcessingJob[]> {
+  return apiRequest<ProcessingJob[]>('/api/v1/jobs/');
+}
